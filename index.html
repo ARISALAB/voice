@@ -3,406 +3,1009 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Voice Translator - Subtitle Cinema Mode</title>
+    <title>Cinema Voice Translator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        :root { --fs: 1; }
+        body { font-family: 'Inter', system-ui, sans-serif; }
+
         .pulse-red { animation: pulse 1.5s infinite; }
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+            0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70%  { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        /* Subtitle sizes scale with the A- / A+ buttons */
+        .sub-src { font-size: calc(1.5rem * var(--fs)); line-height: 1.3; }
+        .sub-tgt { font-size: calc(1.25rem * var(--fs)); line-height: 1.3; }
+        @media (min-width: 768px) {
+            .sub-src { font-size: calc(1.875rem * var(--fs)); }
+            .sub-tgt { font-size: calc(1.5rem * var(--fs)); }
+        }
+
+        #cinema:fullscreen { background: #020617; padding: 5vw; border-radius: 0; }
+        #cinema:fullscreen .sub-src { font-size: calc(3vw * var(--fs)); }
+        #cinema:fullscreen .sub-tgt { font-size: calc(2.6vw * var(--fs)); }
+
+        .dots::after { content: '…'; display: inline-block; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+
+        .row-link { border-color: rgba(59,130,246,.7) !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .pulse-red, .dots::after, .animate-pulse { animation: none !important; }
+        }
+        button:focus-visible, select:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between p-4 md:p-8">
 
     <!-- Header -->
-    <header class="max-w-5xl mx-auto w-full flex justify-between items-center mb-6">
+    <header class="max-w-5xl mx-auto w-full flex flex-wrap gap-3 justify-between items-center mb-4">
         <div class="flex items-center space-x-3">
             <div class="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-600/30">
                 <i class="fa-solid font-bold text-xl text-white fa-language"></i>
             </div>
             <div>
                 <h1 class="text-xl font-bold text-white tracking-wide">Cinema Voice Translator</h1>
-                <p class="text-xs text-slate-400">Live Υπότιτλοι & Απεριόριστο Ιστορικό</p>
+                <p class="text-xs text-slate-400">Live υπότιτλοι &amp; απεριόριστο ιστορικό</p>
             </div>
         </div>
 
         <div class="flex items-center space-x-2">
-            <select id="sourceLang" class="bg-slate-900 text-slate-200 border border-slate-700 text-sm rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="el-GR" selected>Ελληνικά (el)</option>
-                <option value="en-US">English (en)</option>
-                <option value="de-DE">Deutsch (de)</option>
-                <option value="fr-FR">Français (fr)</option>
-                <option value="es-ES">Español (es)</option>
-                <option value="it-IT">Italiano (it)</option>
-            </select>
-
-            <button id="swapLangBtn" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition">
+            <select id="sourceLang" aria-label="Γλώσσα ομιλίας" class="bg-slate-900 text-slate-200 border border-slate-700 text-sm rounded-lg p-2"></select>
+            <button id="swapLangBtn" title="Εναλλαγή γλωσσών" aria-label="Εναλλαγή γλωσσών" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition">
                 <i class="fa-solid fa-arrows-rotate"></i>
             </button>
-
-            <select id="targetLang" class="bg-slate-900 text-slate-200 border border-slate-700 text-sm rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="en">English (en)</option>
-                <option value="el">Ελληνικά (el)</option>
-                <option value="de">Deutsch (de)</option>
-                <option value="fr">Français (fr)</option>
-                <option value="es">Español (es)</option>
-                <option value="it">Italiano (it)</option>
-            </select>
+            <select id="targetLang" aria-label="Γλώσσα μετάφρασης" class="bg-slate-900 text-slate-200 border border-slate-700 text-sm rounded-lg p-2"></select>
         </div>
     </header>
 
-    <!-- Main Container -->
-    <main class="max-w-5xl mx-auto w-full flex-grow flex flex-col gap-6">
+    <!-- Notice banner -->
+    <div id="notice" class="max-w-5xl mx-auto w-full mb-4 hidden" role="alert">
+        <div id="noticeBox" class="flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm">
+            <span id="noticeText"></span>
+            <button id="noticeClose" aria-label="Κλείσιμο" class="opacity-70 hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+    </div>
 
-        <!-- Active Subtitle Screen (Cinema View) -->
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-md min-h-[220px] flex flex-col justify-center items-center text-center">
-            
+    <!-- Main -->
+    <main class="max-w-5xl mx-auto w-full flex-grow flex flex-col gap-5">
+
+        <!-- Cinema screen -->
+        <section id="cinema" class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden backdrop-blur-md min-h-[240px] flex flex-col justify-center items-center text-center">
+
             <div id="statusBadge" class="absolute top-4 left-4 flex items-center space-x-2 bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700 text-xs font-semibold text-slate-400">
                 <span id="statusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
-                <span id="statusText">Αναμονή...</span>
+                <span id="statusText">Αναμονή…</span>
             </div>
 
-            <!-- Subtitle Output Container -->
-            <div class="w-full space-y-4 my-2">
-                <!-- Live Source Sentence -->
-                <p id="activeSource" class="text-2xl md:text-3xl font-semibold text-slate-100 tracking-wide transition-all duration-150">
-                    <span class="text-slate-500 italic text-xl">Πατήστε το κουμπί εγγραφής και αρχίστε να μιλάτε...</span>
-                </p>
-                <!-- Live Translated Subtitle -->
-                <p id="activeTarget" class="text-xl md:text-2xl font-bold text-amber-400 tracking-wide transition-all duration-150 min-h-[32px]">
-                    ...
-                </p>
+            <div class="absolute top-3 right-3 flex items-center space-x-1 text-slate-400">
+                <button id="fsDownBtn" title="Μικρότερα γράμματα" aria-label="Μικρότερα γράμματα" class="px-2 py-1 rounded-md hover:bg-slate-800 hover:text-white text-xs font-bold">A−</button>
+                <button id="fsUpBtn" title="Μεγαλύτερα γράμματα" aria-label="Μεγαλύτερα γράμματα" class="px-2 py-1 rounded-md hover:bg-slate-800 hover:text-white text-sm font-bold">A+</button>
+                <button id="fullscreenBtn" title="Πλήρης οθόνη" aria-label="Πλήρης οθόνη" class="px-2 py-1 rounded-md hover:bg-slate-800 hover:text-white">
+                    <i id="fullscreenIcon" class="fa-solid fa-expand"></i>
+                </button>
             </div>
-        </div>
 
-        <!-- Controls Bar -->
-        <div class="flex justify-center items-center">
+            <div class="w-full space-y-4 mt-8 mb-2">
+                <p id="activeSource" class="sub-src font-semibold text-slate-100 tracking-wide"></p>
+                <p id="activeTarget" class="sub-tgt font-bold text-amber-400 tracking-wide min-h-[32px] transition-opacity duration-150"></p>
+            </div>
+        </section>
+
+        <!-- Controls -->
+        <div class="flex flex-col items-center gap-4">
             <button id="toggleMicBtn" class="flex items-center space-x-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg rounded-full shadow-lg shadow-blue-600/30 transition-all transform active:scale-95">
                 <i class="fa-solid fa-microphone text-xl" id="micIcon"></i>
                 <span id="micText">Έναρξη Live Εγγραφής</span>
             </button>
+
+            <div class="flex flex-wrap justify-center gap-x-6 gap-y-2">
+                <label class="inline-flex items-center gap-2 cursor-pointer select-none text-sm text-slate-300" title="Προσθέτει τελείες, κόμματα, ερωτηματικά και κεφαλαία">
+                    <input type="checkbox" id="autoPunct" class="peer sr-only">
+                    <span class="relative w-9 h-5 rounded-full bg-slate-700 peer-checked:bg-blue-600 transition peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-4"></span>
+                    Αυτόματη στίξη
+                </label>
+                <label class="inline-flex items-center gap-2 cursor-pointer select-none text-sm text-slate-300" title="Διαβάζει φωναχτά κάθε μετάφραση (το μικρόφωνο σταματά όσο μιλάει)">
+                    <input type="checkbox" id="autoSpeak" class="peer sr-only">
+                    <span class="relative w-9 h-5 rounded-full bg-slate-700 peer-checked:bg-blue-600 transition peer-focus-visible:ring-2 peer-focus-visible:ring-blue-400 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:rounded-full after:bg-white after:transition peer-checked:after:translate-x-4"></span>
+                    Αυτόματη εκφώνηση μετάφρασης
+                </label>
+            </div>
         </div>
 
-        <!-- Full History Log -->
+        <!-- History -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
-            <!-- Source History -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-[280px]">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-[300px]">
                 <div class="flex justify-between items-center pb-2 border-b border-slate-800 mb-3">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-align-left mr-1.5"></i>Ιστορικό Αρχικού Κειμένου</span>
-                    <button id="copySourceBtn" title="Αντιγραφή" class="text-slate-400 hover:text-white text-xs p-1">
+                    <span class="text-sm font-semibold text-slate-400"><i class="fa-solid fa-align-left mr-1.5"></i>Ιστορικό αρχικού κειμένου</span>
+                    <button id="copySourceBtn" title="Αντιγραφή" aria-label="Αντιγραφή αρχικού κειμένου" class="text-slate-400 hover:text-white text-xs p-1">
                         <i class="fa-regular fa-copy"></i>
                     </button>
                 </div>
-                <div id="sourceLog" class="flex-grow overflow-y-auto custom-scrollbar space-y-2 text-sm text-slate-300 pr-2">
-                    <p class="text-slate-600 italic">Το ιστορικό ομιλίας θα εμφανίζεται εδώ...</p>
-                </div>
+                <div id="sourceLog" class="flex-grow overflow-y-auto custom-scrollbar space-y-2 text-sm text-slate-300 pr-2"></div>
             </div>
 
-            <!-- Target History -->
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-[280px]">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-[300px]">
                 <div class="flex justify-between items-center pb-2 border-b border-slate-800 mb-3">
-                    <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider"><i class="fa-solid fa-language mr-1.5"></i>Ιστορικό Μετάφρασης</span>
+                    <span class="text-sm font-semibold text-emerald-400"><i class="fa-solid fa-language mr-1.5"></i>Ιστορικό μετάφρασης</span>
                     <div class="flex space-x-2">
-                        <button id="speakLogBtn" title="Εκφώνηση" class="text-slate-400 hover:text-white text-xs p-1">
-                            <i class="fa-solid fa-volume-high"></i>
+                        <button id="speakLogBtn" title="Εκφώνηση όλου του ιστορικού" aria-label="Εκφώνηση μετάφρασης" class="text-slate-400 hover:text-white text-xs p-1">
+                            <i class="fa-solid fa-volume-high" id="speakLogIcon"></i>
                         </button>
-                        <button id="copyTargetBtn" title="Αντιγραφή" class="text-slate-400 hover:text-white text-xs p-1">
+                        <button id="copyTargetBtn" title="Αντιγραφή" aria-label="Αντιγραφή μετάφρασης" class="text-slate-400 hover:text-white text-xs p-1">
                             <i class="fa-regular fa-copy"></i>
                         </button>
                     </div>
                 </div>
-                <div id="targetLog" class="flex-grow overflow-y-auto custom-scrollbar space-y-2 text-sm text-emerald-300/90 pr-2">
-                    <p class="text-slate-600 italic">Το ιστορικό μετάφρασης θα εμφανίζεται εδώ...</p>
-                </div>
+                <div id="targetLog" class="flex-grow overflow-y-auto custom-scrollbar space-y-2 text-sm text-emerald-300/90 pr-2"></div>
             </div>
         </div>
-
     </main>
 
-    <!-- Footer Tools -->
-    <footer class="max-w-5xl mx-auto w-full mt-6 flex justify-between items-center text-xs text-slate-500 pt-4 border-t border-slate-800/60">
+    <!-- Footer -->
+    <footer class="max-w-5xl mx-auto w-full mt-6 flex flex-wrap gap-3 justify-between items-center text-xs text-slate-500 pt-4 border-t border-slate-800/60">
         <div>
-            <span>Status: </span><span id="apiStatus" class="text-emerald-400 font-semibold">Ready</span>
+            <span>Μετάφραση: </span><span id="apiStatus" class="text-emerald-400 font-semibold">Έτοιμη</span>
+            <span class="ml-3 hidden sm:inline text-slate-600">Συντόμευση: Space = εγγραφή</span>
         </div>
         <div class="flex space-x-4">
             <button id="clearBtn" class="hover:text-rose-400 transition"><i class="fa-solid fa-trash-can mr-1"></i>Καθαρισμός</button>
-            <button id="downloadBtn" class="hover:text-blue-400 transition"><i class="fa-solid fa-download mr-1"></i>Λήψη Script (.txt)</button>
+            <button id="downloadBtn" class="hover:text-blue-400 transition"><i class="fa-solid fa-download mr-1"></i>Λήψη .txt</button>
+            <button id="downloadSrtBtn" class="hover:text-blue-400 transition"><i class="fa-solid fa-closed-captioning mr-1"></i>Λήψη υποτίτλων .srt</button>
         </div>
     </footer>
 
-    <script>
-        // State variables
-        let isRecording = false;
-        let recognition = null;
-        let translateTimeout = null;
-        let lastFinalText = '';
-        let fullSourceLog = [];
-        let fullTargetLog = [];
-        let currentTargetLanguage = 'en';
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 text-slate-100 text-sm px-4 py-2 rounded-full shadow-lg opacity-0 pointer-events-none transition-opacity duration-200"></div>
 
-        // Elements
-        const toggleMicBtn = document.getElementById('toggleMicBtn');
-        const micIcon = document.getElementById('micIcon');
-        const micText = document.getElementById('micText');
-        const statusBadge = document.getElementById('statusBadge');
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const activeSource = document.getElementById('activeSource');
-        const activeTarget = document.getElementById('activeTarget');
-        const sourceLog = document.getElementById('sourceLog');
-        const targetLog = document.getElementById('targetLog');
-        const sourceLangSelect = document.getElementById('sourceLang');
-        const targetLangSelect = document.getElementById('targetLang');
-        const swapLangBtn = document.getElementById('swapLangBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const copySourceBtn = document.getElementById('copySourceBtn');
-        const copyTargetBtn = document.getElementById('copyTargetBtn');
-        const speakLogBtn = document.getElementById('speakLogBtn');
+<script>
+(() => {
+'use strict';
 
-        // Check Web Speech API support
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+/* =====================================================================
+   PURE LOGIC: languages, punctuation, translation validation
+   ===================================================================== */
+// ==== PURE:BEGIN
+const LANGS = [
+    { code: 'el', loc: 'el-GR', name: 'Ελληνικά' },
+    { code: 'en', loc: 'en-US', name: 'English' },
+    { code: 'de', loc: 'de-DE', name: 'Deutsch' },
+    { code: 'fr', loc: 'fr-FR', name: 'Français' },
+    { code: 'es', loc: 'es-ES', name: 'Español' },
+    { code: 'it', loc: 'it-IT', name: 'Italiano' },
+    { code: 'pt', loc: 'pt-PT', name: 'Português' },
+    { code: 'nl', loc: 'nl-NL', name: 'Nederlands' },
+    { code: 'tr', loc: 'tr-TR', name: 'Türkçe' },
+    { code: 'ru', loc: 'ru-RU', name: 'Русский' },
+];
+const langBy = code => LANGS.find(l => l.code === code) || LANGS[1];
 
-        if (!SpeechRecognition) {
-            alert('Ο περιηγητής σας δεν υποστηρίζει Web Speech API. Παρακαλούμε χρησιμοποιήστε Google Chrome ή Microsoft Edge.');
-        } else {
-            initSpeechRecognition();
+const strip = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const words = s => strip(s).replace(/[^\p{L}\p{N}'’\- ]/gu, '').split(/\s+/).filter(Boolean);
+const setOf = str => new Set(str.split(' ').map(strip));
+
+// Words that open a question (accent-insensitive).
+const Q_FIRST = {
+    el: setOf('ποιος ποια ποιο ποιον ποιοι ποιες ποιους τι γιατι ποτε ποσο ποσος ποση ποσοι ποσες ποσα ποσους μηπως αραγε μπορεις μπορειτε ξερεις ξερετε θελεις θελετε θες πως'),
+    en: setOf('who whom whose what when where why how which'),
+    de: setOf('wer was wann wo warum wieso weshalb wie welche welcher welches wohin woher ist sind bist seid hast habt hat haben kannst könnt können kann darf darfst willst wollt wirst werdet wird'),
+    fr: setOf('qui que quoi quand où pourquoi comment combien quel quelle quels quelles lequel laquelle est-ce'),
+    es: setOf('quién quiénes qué cuándo dónde adónde cómo cuál cuáles cuánto cuánta cuántos cuántas quien que cuando donde como cual cuanto'),
+    it: setOf('chi che cosa quando dove perché come quale quali quanto quanta quanti quante'),
+    pt: setOf('quem que quando onde porquê como qual quais quanto quanta quantos quantas posso pode podes podem'),
+    nl: setOf('wie wat wanneer waar waarom hoe welke welk hoeveel is zijn ben bent kun kan kunt heb heeft hebt wil wilt zal zou'),
+    ru: setOf('кто что когда где почему зачем как какой какая какое какие сколько куда откуда разве неужели'),
+    tr: setOf('ne nerede neden kim nasıl hangi kaç'),
+};
+const EN_AUX = setOf('is are am was were do does did can could would should will');
+const EN_PRON = setOf('i you he she it we they there this that the a an my your anyone anybody somebody everyone');
+
+// Conjunctions that usually take a comma before them (accent-insensitive).
+const COMMA_BEFORE = {
+    el: ['αλλα', 'ομως', 'ενω', 'επειδη', 'ωστοσο', 'δηλαδη', 'οποτε'],
+    en: ['but', 'however', 'although', 'though', 'whereas'],
+    de: ['aber', 'sondern', 'obwohl', 'weil', 'dass', 'damit', 'wahrend'],
+    fr: ['mais', 'car', 'puisque', 'parce que', 'bien que', 'alors que', 'meme si'],
+    es: ['pero', 'aunque', 'sino', 'mientras que'],
+    it: ['ma', 'pero', 'anche se', 'sebbene', 'mentre'],
+    pt: ['mas', 'porem', 'embora'],
+    nl: ['maar', 'hoewel', 'terwijl'],
+    ru: ['но', 'однако', 'хотя', 'что', 'чтобы', 'потому что', 'который'],
+    tr: [],
+};
+const COMMA_PHRASES = Object.fromEntries(
+    Object.entries(COMMA_BEFORE).map(([k, list]) => [k, list.map(p => strip(p).split(' '))])
+);
+
+// Spoken punctuation commands ("κόμμα", "τελεία", "question mark"...).
+const SPOKEN = {
+    el: [['άνω και κάτω τελεία', ':'], ['ερωτηματικό', '?'], ['θαυμαστικό', '!'], ['αποσιωπητικά', '…'], ['τελεία', '.'], ['κόμμα', ',']],
+    en: [['question mark', '?'], ['exclamation mark', '!'], ['exclamation point', '!'], ['full stop', '.'], ['comma', ','], ['colon', ':']],
+};
+const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const SPOKEN_RE = Object.fromEntries(Object.entries(SPOKEN).map(([lang, list]) => [
+    lang,
+    list.map(([phrase, mark]) => [new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(phrase).replace(/ /g, '\\s+')}(?![\\p{L}\\p{N}])`, 'giu'), mark]),
+]));
+
+const upperFirstLetter = (s, lang) =>
+    s.replace(/\p{L}/u, c => (lang === 'tr' ? c.toLocaleUpperCase('tr') : c.toUpperCase()));
+
+function isQuestion(sentence, lang) {
+    const raw = sentence.trim().split(/\s+/);
+    const first = (raw[0] || '').replace(/^[¿"'«(]+/, '');
+    if (!first) return false;
+    const w = words(sentence);
+    const f = w[0] || '';
+    if (lang === 'el' && first.toLowerCase() === 'πού') return true;
+    if (lang === 'en') return Q_FIRST.en.has(f) || (EN_AUX.has(f) && EN_PRON.has(w[1] || ''));
+    if (lang === 'fr' && (/^qu['’]/.test(f) || /-(tu|vous|il|elle|on|ils|elles|je|nous)$/.test(f))) return true;
+    if (lang === 'es' && f === 'por' && strip(w[1] || '') === 'que') return true;
+    if (lang === 'ru' && w[1] === 'ли') return true;
+    if (lang === 'tr') {
+        const last = w[w.length - 1] || '';
+        if (/^m[ıiuü]$|^m[ıiuü]s[ıiuü]n$|^m[ıiuü]s[ıiuü]n[ıiuü]z$/.test(last)) return true;
+    }
+    const set = Q_FIRST[lang];
+    return !!set && set.has(f);
+}
+
+function addCommas(sentence, lang) {
+    const phrases = COMMA_PHRASES[lang] || [];
+    if (!phrases.length) return sentence;
+    const tokens = sentence.split(' ');
+    const plain = tokens.map(t => strip(t).replace(/[^\p{L}\p{N}'’\-]/gu, ''));
+    for (let i = 3; i < tokens.length; i++) {
+        if (/[,.;:!?…]$/.test(tokens[i - 1])) continue;
+        for (const p of phrases) {
+            if (p.length === 1 ? plain[i] === p[0] : plain.slice(i, i + p.length).join(' ') === p.join(' ')) {
+                if (i + p.length < tokens.length) { tokens[i - 1] += ','; }
+                break;
+            }
         }
+    }
+    return tokens.join(' ');
+}
 
-        function initSpeechRecognition() {
-            recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = sourceLangSelect.value;
+function punctuate(text, lang) {
+    let t = text.replace(/\s+/g, ' ').trim();
+    if (!t) return '';
 
-            recognition.onstart = () => {
-                isRecording = true;
-                updateMicUI(true);
-            };
+    // 1) spoken commands
+    (SPOKEN_RE[lang] || []).forEach(([re, mark]) => { t = t.replace(re, mark); });
+    t = t.replace(/\s+([.,!?;:…])/g, '$1').replace(/([.,!?;:…])(?=\p{L})/gu, '$1 ').trim();
 
-            recognition.onresult = (event) => {
-                let interimTranscript = '';
-                let finalTranscript = '';
+    // 2) sentence by sentence
+    const sentences = t.split(/(?<=[.!?…])\s+/).filter(Boolean).map(s => {
+        s = s.trim();
+        s = addCommas(s, lang);
+        if (/,$/.test(s)) s = s.slice(0, -1);
+        const done = /[.!?…;:]["'”»)]*$/.test(s);
+        if (!done) {
+            if (isQuestion(s, lang)) s += (lang === 'el' ? ';' : '?');
+            else s += '.';
+        }
+        if (lang === 'es' && /\?$/.test(s) && !s.startsWith('¿')) s = '¿' + s;
+        return s;
+    });
+    t = sentences.join(' ');
 
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
+    // 3) capitalisation
+    if (lang === 'en') t = t.replace(/\bi\b/g, 'I');
+    t = upperFirstLetter(t, lang);
+    t = t.replace(/([.!?…;]["'”»)]*\s+)(\p{L})/gu, (m, a, b) => a + upperFirstLetter(b, lang));
+    return t;
+}
+
+// Translators are happier with "?" than with the Greek question mark.
+const forApi = (text, lang) => (lang === 'el' ? text.replace(/;(\s|$)/g, '?$1') : text);
+
+const SCRIPTS = { el: /[\u0370-\u03FF\u1F00-\u1FFF]/, ru: /[\u0400-\u04FF]/ };
+const norm = s => strip(s).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+// Rejects "translations" that are really the untouched source text.
+function isGoodTranslation(srcText, out, src, tgt) {
+    if (!out || !norm(out)) return false;
+    if (src === tgt) return true;
+    const letters = out.match(/\p{L}/gu) || [];
+    if (SCRIPTS[src] && letters.length) {
+        const hits = letters.filter(c => SCRIPTS[src].test(c)).length;
+        if (hits / letters.length > 0.4) return false;
+    }
+    if (norm(out) === norm(srcText)) {
+        const n = norm(srcText).split(' ').length;
+        return n <= 2 || !/\p{L}/u.test(srcText);
+    }
+    return true;
+}
+// ==== PURE:END
+
+/* =====================================================================
+   DOM refs & state
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const el = {
+    mic: $('toggleMicBtn'), micIcon: $('micIcon'), micText: $('micText'),
+    statusDot: $('statusDot'), statusText: $('statusText'),
+    activeSource: $('activeSource'), activeTarget: $('activeTarget'),
+    sourceLog: $('sourceLog'), targetLog: $('targetLog'),
+    srcSel: $('sourceLang'), tgtSel: $('targetLang'), swap: $('swapLangBtn'),
+    clear: $('clearBtn'), dl: $('downloadBtn'), dlSrt: $('downloadSrtBtn'),
+    copySrc: $('copySourceBtn'), copyTgt: $('copyTargetBtn'),
+    speakLog: $('speakLogBtn'), speakLogIcon: $('speakLogIcon'),
+    autoPunct: $('autoPunct'), autoSpeak: $('autoSpeak'),
+    api: $('apiStatus'), toast: $('toast'),
+    notice: $('notice'), noticeBox: $('noticeBox'), noticeText: $('noticeText'), noticeClose: $('noticeClose'),
+    cinema: $('cinema'), fsUp: $('fsUpBtn'), fsDown: $('fsDownBtn'), fsBtn: $('fullscreenBtn'), fsIcon: $('fullscreenIcon'),
+};
+
+const SETTINGS_KEY = 'cvt.settings.v2';
+const HISTORY_KEY = 'cvt.history.v2';
+const readStore = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k)) ?? fallback; } catch { return fallback; } };
+const writeStore = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } };
+
+const settings = Object.assign({ src: 'el', tgt: 'en', punct: true, speak: false, fs: 1 }, readStore(SETTINGS_KEY, {}));
+if (!LANGS.some(l => l.code === settings.src)) settings.src = 'el';
+if (!LANGS.some(l => l.code === settings.tgt) || settings.tgt === settings.src) settings.tgt = settings.src === 'en' ? 'el' : 'en';
+const saveSettings = () => writeStore(SETTINGS_KEY, settings);
+
+let isRecording = false;       // what the user wants
+let recognition = null;
+let recognitionActive = false;
+let lastStartTs = 0;
+let fastFails = 0;
+let lastHandledIndex = -1;
+let currentInterim = '';
+let sentenceStart = 0;
+let ttsPending = 0;
+let ttsPause = false;
+let wakeLock = null;
+
+let entries = [];
+let nextId = 1;
+let lastCommit = null;         // { norm, time, entry, S }
+let activeEntry = null;
+
+let liveSeq = 0, liveAbort = null, liveTimer = null, pendingLive = '', lastLiveAt = 0, lastLiveText = '';
+const LIVE_MIN_GAP = 700;
+let inflight = 0, lastApiOk = true;
+
+/* =====================================================================
+   Small UI helpers
+   ===================================================================== */
+function toast(msg) {
+    el.toast.textContent = msg;
+    el.toast.classList.remove('opacity-0');
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => el.toast.classList.add('opacity-0'), 1600);
+}
+
+function showNotice(msg, kind = 'error') {
+    const styles = {
+        error: 'bg-rose-950/60 border-rose-800 text-rose-200',
+        warn: 'bg-amber-950/50 border-amber-800 text-amber-200',
+        info: 'bg-blue-950/50 border-blue-800 text-blue-200',
+    };
+    el.noticeBox.className = 'flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm ' + styles[kind];
+    el.noticeText.textContent = msg;
+    el.notice.classList.remove('hidden');
+}
+const hideNotice = () => el.notice.classList.add('hidden');
+el.noticeClose.addEventListener('click', hideNotice);
+
+async function copyText(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch { /* ignore */ }
+        ta.remove();
+    }
+    toast('Αντιγράφηκε');
+}
+
+function refreshApi() {
+    if (inflight > 0) { el.api.textContent = 'Μεταφράζει…'; el.api.className = 'text-amber-400 font-semibold'; }
+    else if (!navigator.onLine) { el.api.textContent = 'Χωρίς σύνδεση'; el.api.className = 'text-rose-400 font-semibold'; }
+    else if (!lastApiOk) { el.api.textContent = 'Πρόβλημα μετάφρασης'; el.api.className = 'text-rose-400 font-semibold'; }
+    else { el.api.textContent = 'Έτοιμη'; el.api.className = 'text-emerald-400 font-semibold'; }
+}
+
+const PLACEHOLDER_SRC = '<span class="text-slate-500 italic text-xl">Πατήστε το κουμπί εγγραφής και αρχίστε να μιλάτε…</span>';
+
+function setActiveTarget(text, { stale = false, error = false } = {}) {
+    el.activeTarget.textContent = text;
+    el.activeTarget.classList.toggle('opacity-50', stale);
+    el.activeTarget.classList.toggle('text-rose-400', error);
+    el.activeTarget.classList.toggle('text-amber-400', !error);
+}
+function showIdle() {
+    el.activeSource.innerHTML = PLACEHOLDER_SRC;
+    setActiveTarget('');
+}
+
+function setStatus(kind) {
+    const map = {
+        idle:      ['w-2 h-2 rounded-full bg-slate-500', 'Αναμονή…', 'text-slate-400'],
+        listening: ['w-2 h-2 rounded-full bg-emerald-500 animate-pulse', 'Ενεργή ακρόαση…', 'text-emerald-400 font-medium'],
+        speaking:  ['w-2 h-2 rounded-full bg-amber-400 animate-pulse', 'Εκφώνηση μετάφρασης…', 'text-amber-400 font-medium'],
+        restart:   ['w-2 h-2 rounded-full bg-amber-400 animate-pulse', 'Επανασύνδεση…', 'text-amber-400 font-medium'],
+    };
+    const [dot, text, cls] = map[kind];
+    el.statusDot.className = dot;
+    el.statusText.textContent = text;
+    el.statusText.className = cls;
+}
+
+function updateMicUI(recording) {
+    if (recording) {
+        el.mic.className = 'flex items-center space-x-3 px-8 py-4 bg-rose-600 hover:bg-rose-500 text-white font-bold text-lg rounded-full shadow-lg pulse-red transition-all transform active:scale-95';
+        el.micIcon.className = 'fa-solid fa-stop text-xl';
+        el.micText.textContent = 'Διακοπή εγγραφής';
+        setStatus(ttsPause ? 'speaking' : 'listening');
+    } else {
+        el.mic.className = 'flex items-center space-x-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg rounded-full shadow-lg shadow-blue-600/30 transition-all transform active:scale-95';
+        el.micIcon.className = 'fa-solid fa-microphone text-xl';
+        el.micText.textContent = 'Έναρξη Live Εγγραφής';
+        setStatus('idle');
+    }
+}
+
+/* =====================================================================
+   Translation
+   ===================================================================== */
+async function fetchJson(url, signal, ms = 6000) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ms);
+    const onAbort = () => ctl.abort();
+    signal?.addEventListener('abort', onAbort);
+    try {
+        const r = await fetch(url, { signal: ctl.signal });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return await r.json();
+    } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+    }
+}
+
+const ENDPOINTS = [
+    {
+        url: (t, s, d) => `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${s}&tl=${d}&dt=t&q=${encodeURIComponent(t)}`,
+        parse: j => (Array.isArray(j) && Array.isArray(j[0]) ? j[0].map(x => (x && x[0]) || '').join('') : ''),
+    },
+    {
+        max: 450,
+        url: (t, s, d) => `https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=${encodeURIComponent(s + '|' + d)}`,
+        parse: j => {
+            const out = j && j.responseStatus == 200 && j.responseData ? j.responseData.translatedText : '';
+            return /MYMEMORY WARNING|PLEASE SELECT|INVALID/i.test(out || '') ? '' : out;
+        },
+    },
+    {
+        url: (t, s, d) => `https://lingva.ml/api/v1/${s}/${d}/${encodeURIComponent(t)}`,
+        parse: j => (j && j.translation) || '',
+    },
+];
+
+const cache = new Map();
+// Returns a string on success, null on failure, undefined when aborted.
+async function translate(text, src, tgt, signal) {
+    if (src === tgt) return text;
+    const key = `${src}|${tgt}|${text}`;
+    if (cache.has(key)) return cache.get(key);
+
+    inflight++; refreshApi();
+    try {
+        for (const ep of ENDPOINTS) {
+            if (signal?.aborted) return undefined;
+            if (ep.max && text.length > ep.max) continue;
+            try {
+                const out = (ep.parse(await fetchJson(ep.url(text, src, tgt), signal)) || '').trim();
+                if (isGoodTranslation(text, out, src, tgt)) {
+                    cache.set(key, out);
+                    if (cache.size > 300) cache.delete(cache.keys().next().value);
+                    lastApiOk = true;
+                    return out;
                 }
+            } catch {
+                if (signal?.aborted) return undefined;
+            }
+        }
+        lastApiOk = false;
+        return null;
+    } finally {
+        inflight--; refreshApi();
+    }
+}
 
-                let currentText = finalTranscript || interimTranscript;
+/* ---- live (interim) translation: throttled, latest wins ---- */
+function scheduleLive(text) {
+    pendingLive = text;
+    if (liveTimer) return;
+    const wait = Math.max(0, LIVE_MIN_GAP - (Date.now() - lastLiveAt));
+    liveTimer = setTimeout(() => {
+        liveTimer = null;
+        const t = pendingLive; pendingLive = '';
+        if (t) runLive(t);
+    }, wait);
+}
+function cancelLive() {
+    clearTimeout(liveTimer); liveTimer = null; pendingLive = ''; lastLiveText = '';
+    liveSeq++; liveAbort?.abort();
+}
+async function runLive(text) {
+    const seq = ++liveSeq;
+    liveAbort?.abort();
+    liveAbort = new AbortController();
+    lastLiveAt = Date.now();
+    const S = settings.src, T = settings.tgt;
+    const res = await translate(forApi(text, S), S, T, liveAbort.signal);
+    if (seq !== liveSeq || !res) return;               // outdated, aborted or failed: keep what is on screen
+    setActiveTarget(res, { stale: false });
+}
 
-                if (currentText.trim() !== '') {
-                    activeSource.textContent = currentText;
-                    
-                    // Throttle live translation
-                    clearTimeout(translateTimeout);
-                    translateTimeout = setTimeout(() => {
-                        fetchTranslation(currentText, false);
-                    }, 300);
-                }
+/* =====================================================================
+   History entries
+   ===================================================================== */
+const ROW = 'rounded-lg border px-3 py-2 leading-relaxed transition-colors ';
+const ROW_SRC = ROW + 'bg-slate-800/60 border-slate-700/50';
+const ROW_TGT = ROW + 'bg-slate-800/60 border-slate-700/50 cursor-pointer';
 
-                // If sentence is finalized by speech engine
-                if (finalTranscript.trim() !== '' && finalTranscript !== lastFinalText) {
-                    lastFinalText = finalTranscript;
-                    commitSentenceToHistory(finalTranscript);
-                }
-            };
+function emptyLogs() {
+    el.sourceLog.innerHTML = '<p data-empty class="text-slate-600 italic">Το ιστορικό ομιλίας θα εμφανίζεται εδώ…</p>';
+    el.targetLog.innerHTML = '<p data-empty class="text-slate-600 italic">Το ιστορικό μετάφρασης θα εμφανίζεται εδώ…</p>';
+}
 
-            recognition.onerror = (event) => {
+function appendRow(container, node) {
+    const empty = container.querySelector('[data-empty]');
+    if (empty) empty.remove();
+    const stick = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
+    container.appendChild(node);
+    if (stick) container.scrollTop = container.scrollHeight;
+}
+
+function createEntry({ src, tgt = '', srcLang, tgtLang, t0, t1, status = 'pending' }) {
+    const e = { id: nextId++, src, tgt, srcLang, tgtLang, t0, t1, status, rev: 0, dead: false };
+    e.sNode = document.createElement('p'); e.sNode.className = ROW_SRC;
+    e.tNode = document.createElement('p'); e.tNode.className = ROW_TGT;
+    const on = v => () => { e.sNode.classList.toggle('row-link', v); e.tNode.classList.toggle('row-link', v); };
+    [e.sNode, e.tNode].forEach(n => { n.addEventListener('mouseenter', on(true)); n.addEventListener('mouseleave', on(false)); });
+    e.tNode.addEventListener('click', () => {
+        if (e.status === 'error') translateEntry(e, false);
+        else if (e.status === 'done') { stopSpeaking(); speak(e.tgt, e.tgtLang); }
+    });
+    entries.push(e);
+    appendRow(el.sourceLog, e.sNode);
+    appendRow(el.targetLog, e.tNode);
+    paintEntry(e);
+    return e;
+}
+
+function paintEntry(e) {
+    e.sNode.textContent = e.src;
+    e.tNode.replaceChildren();
+    if (e.status === 'pending') {
+        const s = document.createElement('span'); s.className = 'dots text-slate-500'; e.tNode.appendChild(s);
+        e.tNode.title = '';
+    } else if (e.status === 'error') {
+        e.tNode.innerHTML = '<span class="text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i>Η μετάφραση απέτυχε · πατήστε για επανάληψη</span>';
+        e.tNode.title = 'Επανάληψη μετάφρασης';
+    } else {
+        e.tNode.textContent = e.tgt;
+        e.tNode.title = 'Πατήστε για εκφώνηση';
+    }
+}
+
+let persistTimer = null;
+function persist() {
+    clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+        writeStore(HISTORY_KEY, entries.map(e => ({
+            src: e.src, tgt: e.status === 'done' ? e.tgt : '', srcLang: e.srcLang, tgtLang: e.tgtLang, t0: e.t0, t1: e.t1,
+        })));
+    }, 400);
+}
+
+async function translateEntry(e, speakIt) {
+    const rev = ++e.rev;
+    e.status = 'pending'; paintEntry(e);
+    const res = await translate(forApi(e.src, e.srcLang), e.srcLang, e.tgtLang);
+    if (e.dead || rev !== e.rev) return;
+
+    if (res) {
+        e.tgt = (settings.punct && e.srcLang !== e.tgtLang) ? upperFirstLetter(res, e.tgtLang) : res;
+        e.status = 'done';
+    } else {
+        e.tgt = ''; e.status = 'error';
+    }
+    paintEntry(e); persist();
+
+    if (activeEntry === e) {
+        if (e.status === 'done') setActiveTarget(e.tgt);
+        else setActiveTarget('⚠ Η μετάφραση απέτυχε', { error: true });
+    }
+    if (speakIt && e.status === 'done' && settings.speak) speak(e.tgt, e.tgtLang);
+}
+
+function commitSentence(raw) {
+    const clean = raw.replace(/\s+/g, ' ').trim();
+    if (!clean) return;
+    const S = settings.src, T = settings.tgt;
+    const n = strip(clean), now = Date.now();
+    const text = settings.punct ? punctuate(clean, S) : clean;
+
+    // The recognizer sometimes re-sends a final result (or a slightly longer version of it).
+    if (lastCommit && lastCommit.S === S && !lastCommit.entry.dead && now - lastCommit.time < 1500) {
+        if (n === lastCommit.norm) return;
+        if (n.startsWith(lastCommit.norm)) {
+            const e = lastCommit.entry;
+            e.src = text; e.t1 = now;
+            lastCommit.norm = n; lastCommit.time = now;
+            activeEntry = e;
+            el.activeSource.textContent = text;
+            translateEntry(e, false);
+            return;
+        }
+    }
+
+    // Anything still in flight for the previous interim text is obsolete now.
+    cancelLive();
+
+    const e = createEntry({ src: text, srcLang: S, tgtLang: T, t0: sentenceStart || now - 1500, t1: now });
+    sentenceStart = 0;
+    lastCommit = { norm: n, time: now, entry: e, S };
+    activeEntry = e;
+
+    el.activeSource.textContent = text;
+    setActiveTarget(el.activeTarget.textContent, { stale: true });   // keep the last live line, dimmed, until the final arrives
+    persist();
+    translateEntry(e, true);
+}
+
+function showInterim(text) {
+    const t = text.replace(/\s+/g, ' ').trim();
+    if (!t) return;
+    if (!sentenceStart) sentenceStart = Date.now();
+    activeEntry = null;
+    el.activeSource.textContent = settings.punct ? upperFirstLetter(t, settings.src) : t;
+    if (t === lastLiveText) return;
+    lastLiveText = t;
+    setActiveTarget(el.activeTarget.textContent, { stale: true });
+    scheduleLive(forApi(t, settings.src));
+}
+
+function flushInterim() {
+    const t = currentInterim.trim();
+    currentInterim = '';
+    if (t) commitSentence(t);
+}
+
+/* =====================================================================
+   Speech recognition
+   ===================================================================== */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function startRecognition() {
+    if (!recognition || !isRecording || recognitionActive) return;
+    try {
+        recognition.lang = langBy(settings.src).loc;
+        recognition.start();
+    } catch { /* already started */ }
+}
+
+function stopRecording() {
+    isRecording = false;
+    ttsPause = false;
+    try { recognition.stop(); } catch { /* ignore */ }
+    releaseWakeLock();
+    updateMicUI(false);
+}
+
+function initSpeechRecognition() {
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+        recognitionActive = true;
+        lastStartTs = Date.now();
+        lastHandledIndex = -1;
+        updateMicUI(true);
+    };
+
+    recognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const r = event.results[i];
+            if (r.isFinal) {
+                if (i > lastHandledIndex) { lastHandledIndex = i; commitSentence(r[0].transcript); }
+            } else {
+                interim += r[0].transcript;
+            }
+        }
+        currentInterim = interim;
+        if (interim.trim()) showInterim(interim);
+    };
+
+    recognition.onerror = (event) => {
+        switch (event.error) {
+            case 'no-speech':
+            case 'aborted':
+                return;
+            case 'not-allowed':
+            case 'service-not-allowed':
+                stopRecording();
+                showNotice('Το μικρόφωνο δεν επιτρέπεται. Πατήστε το εικονίδιο κλειδαριάς στη γραμμή διευθύνσεων, επιτρέψτε το μικρόφωνο και δοκιμάστε ξανά. (Αν ανοίγετε το αρχείο απευθείας από τον δίσκο, ο browser ρωτάει κάθε φορά· με localhost ή https θυμάται την επιλογή.)');
+                return;
+            case 'audio-capture':
+                stopRecording();
+                showNotice('Δεν βρέθηκε μικρόφωνο. Συνδέστε ένα και δοκιμάστε ξανά.');
+                return;
+            case 'language-not-supported':
+                stopRecording();
+                showNotice('Η γλώσσα ομιλίας δεν υποστηρίζεται από αυτόν τον browser.');
+                return;
+            case 'network':
+                showNotice('Πρόβλημα δικτύου στην αναγνώριση φωνής. Προσπαθώ ξανά…', 'warn');
+                return;
+            default:
                 console.warn('Speech recognition error:', event.error);
-                if (event.error === 'no-speech') return;
-            };
-
-            recognition.onend = () => {
-                // Auto restart if user didn't explicitly click stop
-                if (isRecording) {
-                    try { recognition.start(); } catch(e) {}
-                } else {
-                    updateMicUI(false);
-                }
-            };
         }
+    };
 
-        // Translation Function with Multi-API Fallback & Greek-Text Filters
-        async function fetchTranslation(text, isFinalCommit = false) {
-            if (!text || !text.trim()) return;
+    recognition.onend = () => {
+        recognitionActive = false;
+        flushInterim();                      // never lose the last words
+        if (!isRecording) { updateMicUI(false); return; }
+        if (ttsPause) return;                // resumes when the translation finishes speaking
 
-            const targetLang = targetLangSelect.value;
-            const sourceLang = sourceLangSelect.value.split('-')[0];
-
-            // Free translation API endpoints (Lingva + Free Google Proxies)
-            const endpoints = [
-                `https://lingva.ml/api/v1/${sourceLang}/${targetLang}/${encodeURIComponent(text)}`,
-                `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`
-            ];
-
-            let translatedText = '';
-
-            for (let url of endpoints) {
-                try {
-                    const res = await fetch(url);
-                    if (!res.ok) continue;
-                    const data = await res.json();
-
-                    if (data.translation) {
-                        translatedText = data.translation;
-                        break;
-                    } else if (Array.isArray(data) && data[0] && data[0][0]) {
-                        translatedText = data[0].map(item => item[0]).join('');
-                        break;
-                    }
-                } catch (e) {
-                    console.warn('Translation endpoint failed, trying fallback...', e);
-                }
-            }
-
-            if (!translatedText) return;
-
-            // FILTER: If target language is NOT Greek/Greek-like, but result contains Greek script, filter it out!
-            if (targetLang !== 'el' && /[\u0370-\u03FF]/.test(translatedText)) {
-                // API returned untranslated source text (e.g., partial words)
-                if (!isFinalCommit) {
-                    return; // Don't show raw Greek in translation area during live stream
-                }
-            }
-
-            activeTarget.textContent = translatedText;
-
-            if (isFinalCommit) {
-                appendTargetLog(translatedText);
-            }
+        fastFails = (Date.now() - lastStartTs < 500) ? fastFails + 1 : 0;
+        if (fastFails >= 5) {
+            stopRecording();
+            showNotice('Η αναγνώριση φωνής σταματά συνεχώς. Ελέγξτε το μικρόφωνο και τη σύνδεση και δοκιμάστε ξανά.');
+            return;
         }
+        setStatus('restart');
+        setTimeout(() => { if (isRecording && !ttsPause) { startRecognition(); } }, 150 + fastFails * 300);
+    };
+}
 
-        function commitSentenceToHistory(sourceText) {
-            appendSourceLog(sourceText);
-            fetchTranslation(sourceText, true);
-        }
+async function acquireWakeLock() {
+    try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch { /* optional */ }
+}
+function releaseWakeLock() {
+    try { wakeLock?.release(); } catch { /* ignore */ }
+    wakeLock = null;
+}
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isRecording) acquireWakeLock();
+});
 
-        function appendSourceLog(text) {
-            if (fullSourceLog.length === 0) sourceLog.innerHTML = '';
-            
-            fullSourceLog.push(text);
-            const p = document.createElement('p');
-            p.className = 'bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50 leading-relaxed';
-            p.textContent = text;
-            sourceLog.appendChild(p);
-            sourceLog.scrollTop = sourceLog.scrollHeight;
-        }
+function toggleRecording() {
+    if (!recognition) return;
+    if (isRecording) { stopRecording(); return; }
+    hideNotice();
+    isRecording = true;
+    fastFails = 0;
+    acquireWakeLock();
+    startRecognition();
+}
 
-        function appendTargetLog(text) {
-            if (fullTargetLog.length === 0) targetLog.innerHTML = '';
+function restartRecognitionForNewSettings() {
+    cancelLive();
+    currentInterim = '';
+    if (isRecording && recognitionActive) { try { recognition.abort(); } catch { /* ignore */ } }
+}
 
-            fullTargetLog.push(text);
-            const p = document.createElement('p');
-            p.className = 'bg-slate-800/60 p-2.5 rounded-lg border border-slate-700/50 leading-relaxed';
-            p.textContent = text;
-            targetLog.appendChild(p);
-            targetLog.scrollTop = targetLog.scrollHeight;
-        }
+/* =====================================================================
+   Text to speech (the mic pauses while speaking to avoid feedback)
+   ===================================================================== */
+function pickVoice(loc) {
+    const l = loc.toLowerCase(), p = l.split('-')[0];
+    const voices = speechSynthesis.getVoices();
+    return voices.find(v => v.lang.replace('_', '-').toLowerCase() === l) ||
+           voices.find(v => v.lang.toLowerCase().startsWith(p));
+}
+function pauseMicForTTS() {
+    if (!isRecording || ttsPause) return;
+    ttsPause = true;
+    setStatus('speaking');
+    try { recognition.abort(); } catch { /* ignore */ }
+}
+function resumeMicAfterTTS() {
+    if (!ttsPause) return;
+    ttsPause = false;
+    if (isRecording) { setStatus('listening'); setTimeout(startRecognition, 250); }
+}
+function speak(text, code) {
+    if (!('speechSynthesis' in window) || !text) return;
+    const L = langBy(code);
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = L.loc;
+    const v = pickVoice(L.loc);
+    if (v) u.voice = v;
+    ttsPending++; pauseMicForTTS(); updateSpeakBtn();
+    const done = () => { ttsPending = Math.max(0, ttsPending - 1); if (ttsPending === 0) { resumeMicAfterTTS(); } updateSpeakBtn(); };
+    u.onend = done; u.onerror = done;
+    speechSynthesis.speak(u);
+}
+function stopSpeaking() {
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    ttsPending = 0;
+    resumeMicAfterTTS();
+    updateSpeakBtn();
+}
+function updateSpeakBtn() {
+    el.speakLogIcon.className = ttsPending > 0 ? 'fa-solid fa-stop' : 'fa-solid fa-volume-high';
+}
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => {};
 
-        function updateMicUI(recording) {
-            if (recording) {
-                toggleMicBtn.className = "flex items-center space-x-3 px-8 py-4 bg-rose-600 hover:bg-rose-500 text-white font-bold text-lg rounded-full shadow-lg pulse-red transition-all transform active:scale-95";
-                micIcon.className = "fa-solid fa-stop text-xl";
-                micText.textContent = "Διακοπή Εγγραφής";
-                statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-ping";
-                statusText.textContent = "Ενεργή Ακρόαση...";
-                statusText.className = "text-emerald-400 font-medium";
-            } else {
-                toggleMicBtn.className = "flex items-center space-x-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg rounded-full shadow-lg shadow-blue-600/30 transition-all transform active:scale-95";
-                micIcon.className = "fa-solid fa-microphone text-xl";
-                micText.textContent = "Έναρξη Live Εγγραφής";
-                statusDot.className = "w-2 h-2 rounded-full bg-slate-500";
-                statusText.textContent = "Αναμονή...";
-                statusText.className = "text-slate-400";
-            }
-        }
+/* =====================================================================
+   Export
+   ===================================================================== */
+function download(name, content, type) {
+    const blob = new Blob(['\ufeff' + content], { type: type + ';charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const today = () => new Date().toISOString().slice(0, 10);
+const srtTime = ms => {
+    ms = Math.max(0, Math.round(ms));
+    const p = (n, l = 2) => String(n).padStart(l, '0');
+    return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`;
+};
 
-        // Button Event Listeners
-        toggleMicBtn.addEventListener('click', () => {
-            if (isRecording) {
-                isRecording = false;
-                recognition.stop();
-            } else {
-                recognition.lang = sourceLangSelect.value;
-                recognition.start();
-            }
-        });
+el.dl.addEventListener('click', () => {
+    if (!entries.length) return toast('Δεν υπάρχει ιστορικό');
+    let out = '=== ΙΣΤΟΡΙΚΟ ΦΩΝΗΤΙΚΗΣ ΜΕΤΑΦΡΑΣΗΣ ===\n\n';
+    entries.forEach(e => { out += `[${e.srcLang.toUpperCase()}]: ${e.src}\n[${e.tgtLang.toUpperCase()}]: ${e.tgt}\n\n`; });
+    download(`translation_script_${today()}.txt`, out, 'text/plain');
+});
 
-        sourceLangSelect.addEventListener('change', () => {
-            if (isRecording) {
-                recognition.stop();
-                setTimeout(() => {
-                    recognition.lang = sourceLangSelect.value;
-                    recognition.start();
-                }, 200);
-            }
-        });
+el.dlSrt.addEventListener('click', () => {
+    const list = entries.filter(e => e.status === 'done');
+    if (!list.length) return toast('Δεν υπάρχει ιστορικό');
+    const base = list[0].t0;
+    const out = list.map((e, i) => {
+        const start = Math.max(0, e.t0 - base);
+        let end = Math.max(e.t1 - base, start + 1200);
+        const next = list[i + 1];
+        if (next && end > next.t0 - base) end = Math.max(start + 500, next.t0 - base - 50);
+        return `${i + 1}\n${srtTime(start)} --> ${srtTime(end)}\n${e.src}\n${e.tgt}\n`;
+    }).join('\n');
+    download(`subtitles_${today()}.srt`, out, 'application/x-subrip');
+});
 
-        swapLangBtn.addEventListener('click', () => {
-            const temp = sourceLangSelect.value.split('-')[0];
-            sourceLangSelect.value = targetLangSelect.value === 'el' ? 'el-GR' : 'en-US';
-            targetLangSelect.value = temp === 'el' ? 'en' : 'el';
-            if (isRecording) {
-                recognition.stop();
-                setTimeout(() => {
-                    recognition.lang = sourceLangSelect.value;
-                    recognition.start();
-                }, 200);
-            }
-        });
+/* =====================================================================
+   Wiring
+   ===================================================================== */
+function fillSelect(sel) {
+    sel.innerHTML = LANGS.map(l => `<option value="${l.code}">${l.name} (${l.code})</option>`).join('');
+}
+fillSelect(el.srcSel); fillSelect(el.tgtSel);
+el.srcSel.value = settings.src; el.tgtSel.value = settings.tgt;
+el.autoPunct.checked = settings.punct; el.autoSpeak.checked = settings.speak;
+document.documentElement.style.setProperty('--fs', settings.fs);
 
-        clearBtn.addEventListener('click', () => {
-            fullSourceLog = [];
-            fullTargetLog = [];
-            sourceLog.innerHTML = '<p class="text-slate-600 italic">Το ιστορικό ομιλίας θα εμφανίζεται εδώ...</p>';
-            targetLog.innerHTML = '<p class="text-slate-600 italic">Το ιστορικό μετάφρασης θα εμφανίζεται εδώ...</p>';
-            activeSource.innerHTML = '<span class="text-slate-500 italic text-xl">Πατήστε το κουμπί εγγραφής και αρχίστε να μιλάτε...</span>';
-            activeTarget.textContent = '...';
-        });
+function onLangChange(changed) {
+    const prev = { src: settings.src, tgt: settings.tgt };
+    settings.src = el.srcSel.value; settings.tgt = el.tgtSel.value;
+    if (settings.src === settings.tgt) {            // never translate a language into itself
+        if (changed === 'src') settings.tgt = prev.src; else settings.src = prev.tgt;
+        el.srcSel.value = settings.src; el.tgtSel.value = settings.tgt;
+    }
+    saveSettings();
+    setActiveTarget('');
+    restartRecognitionForNewSettings();
+}
+el.srcSel.addEventListener('change', () => onLangChange('src'));
+el.tgtSel.addEventListener('change', () => onLangChange('tgt'));
+el.swap.addEventListener('click', () => {
+    [settings.src, settings.tgt] = [settings.tgt, settings.src];
+    el.srcSel.value = settings.src; el.tgtSel.value = settings.tgt;
+    saveSettings();
+    setActiveTarget('');
+    restartRecognitionForNewSettings();
+});
 
-        downloadBtn.addEventListener('click', () => {
-            if (fullSourceLog.length === 0) return alert('Δεν υπάρχει διαθέσιμο ιστορικό.');
-            
-            let content = "=== ΙΣΤΟΡΙΚΟ ΦΩΝΗΤΙΚΗΣ ΜΕΤΑΦΡΑΣΗΣ ===\n\n";
-            for (let i = 0; i < fullSourceLog.length; i++) {
-                content += `[Αρχικό]: ${fullSourceLog[i]}\n`;
-                content += `[Μετάφραση]: ${fullTargetLog[i] || ''}\n\n`;
-            }
+el.autoPunct.addEventListener('change', () => { settings.punct = el.autoPunct.checked; saveSettings(); });
+el.autoSpeak.addEventListener('change', () => {
+    settings.speak = el.autoSpeak.checked; saveSettings();
+    if (!settings.speak) stopSpeaking();
+});
 
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `translation_script_${new Date().toISOString().slice(0,10)}.txt`;
-            a.click();
-        });
+el.mic.addEventListener('click', toggleRecording);
+document.addEventListener('keydown', (ev) => {
+    if (ev.code === 'Space' && document.activeElement === document.body && !ev.repeat) {
+        ev.preventDefault(); toggleRecording();
+    }
+});
 
-        copySourceBtn.addEventListener('click', () => {
-            if (fullSourceLog.length > 0) navigator.clipboard.writeText(fullSourceLog.join('\n'));
-        });
+el.clear.addEventListener('click', () => {
+    if (entries.length && !confirm('Να διαγραφεί όλο το ιστορικό;')) return;
+    entries.forEach(e => { e.dead = true; });
+    entries = []; lastCommit = null; activeEntry = null; currentInterim = ''; sentenceStart = 0;
+    cancelLive(); stopSpeaking();
+    emptyLogs(); showIdle(); persist();
+});
 
-        copyTargetBtn.addEventListener('click', () => {
-            if (fullTargetLog.length > 0) navigator.clipboard.writeText(fullTargetLog.join('\n'));
-        });
+el.copySrc.addEventListener('click', () => { if (entries.length) copyText(entries.map(e => e.src).join('\n')); });
+el.copyTgt.addEventListener('click', () => {
+    const t = entries.filter(e => e.status === 'done').map(e => e.tgt);
+    if (t.length) copyText(t.join('\n'));
+});
+el.speakLog.addEventListener('click', () => {
+    if (ttsPending > 0) { stopSpeaking(); return; }
+    entries.filter(e => e.status === 'done').forEach(e => speak(e.tgt, e.tgtLang));
+});
 
-        speakLogBtn.addEventListener('click', () => {
-            if (fullTargetLog.length === 0) return;
-            const textToSpeak = fullTargetLog.join('. ');
-            const utterance = new SpeechSynthesisUtterance(textToSpeak);
-            utterance.lang = targetLangSelect.value;
-            window.speechSynthesis.speak(utterance);
-        });
-    </script>
+const setFs = v => {
+    settings.fs = Math.min(2.2, Math.max(0.7, Math.round(v * 10) / 10));
+    document.documentElement.style.setProperty('--fs', settings.fs);
+    saveSettings();
+};
+el.fsUp.addEventListener('click', () => setFs(settings.fs + 0.1));
+el.fsDown.addEventListener('click', () => setFs(settings.fs - 0.1));
+
+if (el.cinema.requestFullscreen) {
+    el.fsBtn.addEventListener('click', () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else el.cinema.requestFullscreen().catch(() => {});
+    });
+    document.addEventListener('fullscreenchange', () => {
+        el.fsIcon.className = document.fullscreenElement ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+    });
+} else {
+    el.fsBtn.classList.add('hidden');
+}
+
+window.addEventListener('online', () => {
+    refreshApi();
+    entries.filter(e => e.status === 'error').forEach(e => translateEntry(e, false));
+});
+window.addEventListener('offline', refreshApi);
+
+/* =====================================================================
+   Boot
+   ===================================================================== */
+emptyLogs();
+showIdle();
+refreshApi();
+updateMicUI(false);
+
+// Restore saved history (anything without a translation is translated again)
+readStore(HISTORY_KEY, []).forEach(h => {
+    if (!h || !h.src) return;
+    const e = createEntry({
+        src: h.src, tgt: h.tgt || '', srcLang: h.srcLang || settings.src, tgtLang: h.tgtLang || settings.tgt,
+        t0: h.t0 || Date.now(), t1: h.t1 || Date.now(), status: h.tgt ? 'done' : 'pending',
+    });
+    if (!h.tgt) translateEntry(e, false);
+});
+
+if (!SpeechRecognition) {
+    el.mic.disabled = true;
+    el.mic.classList.add('opacity-50', 'cursor-not-allowed');
+    showNotice('Ο browser σας δεν υποστηρίζει αναγνώριση φωνής (Web Speech API). Χρησιμοποιήστε Google Chrome ή Microsoft Edge.');
+} else {
+    initSpeechRecognition();
+}
+})();
+</script>
 </body>
 </html>
